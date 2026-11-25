@@ -1,0 +1,2477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>星光圣诞树 · 定制你的专属圣诞祝福</title>
+  <meta name="description" content="一棵可定制祝福文字的 3D 发光粒子圣诞树，编辑专属祝福并生成链接一键分享。" />
+  <style>
+    :root {
+      --bg-top: #040910;
+      --bg-mid: #08131d;
+      --bg-bot: #0c1c28;
+      --accent: #f3d285;
+      --accent-soft: rgba(243, 210, 133, 0.16);
+      --accent-strong: #ffe7ad;
+      --glass-bg: rgba(8, 15, 24, 0.62);
+      --glass-bg-hover: rgba(14, 24, 38, 0.78);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-border-strong: rgba(255, 255, 255, 0.22);
+      --text-primary: rgba(255, 252, 245, 0.96);
+      --text-secondary: rgba(235, 232, 224, 0.72);
+      --text-muted: rgba(220, 218, 210, 0.48);
+      --font-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", Georgia, "Times New Roman", serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow-panel: 0 24px 64px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 35%, var(--bg-bot) 0%, var(--bg-mid) 48%, var(--bg-top) 100%);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      transition: background 0.9s ease;
+      user-select: none;
+    }
+
+    /* Fullscreen 3D Canvas */
+    #scene {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #scene:active {
+      cursor: grabbing;
+    }
+
+    /* Subtle atmospheric vignette */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.52) 100%);
+      z-index: 1;
+    }
+
+    /* Top Header & Controls */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 20px 24px;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .brand-title {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .brand-title h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(20px, 2.8vw, 30px);
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      color: var(--accent-strong);
+      text-shadow: 0 2px 24px rgba(243, 210, 133, 0.35);
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .top-actions {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s ease, color 0.25s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    .icon-btn:hover {
+      background: var(--glass-bg-hover);
+      border-color: var(--glass-border-strong);
+      transform: translateY(-1px);
+    }
+
+    .icon-btn:active {
+      transform: translateY(0);
+    }
+
+    .icon-btn.square {
+      width: 40px;
+      padding: 0;
+      justify-content: center;
+    }
+
+    .icon-btn.active {
+      border-color: rgba(243, 210, 133, 0.5);
+      color: var(--accent-strong);
+      background: rgba(243, 210, 133, 0.12);
+    }
+
+    .icon-btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .btn-label {
+      white-space: nowrap;
+    }
+
+    /* Blessing Display Card */
+    .blessing-stage {
+      position: fixed;
+      left: 28px;
+      bottom: 28px;
+      z-index: 15;
+      max-width: min(440px, calc(100vw - 56px));
+      pointer-events: auto;
+      transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    body.editor-open .blessing-stage {
+      left: 28px;
+    }
+
+    .blessing-card {
+      position: relative;
+      padding: 24px 28px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(145deg, rgba(12, 20, 32, 0.64), rgba(6, 11, 18, 0.48));
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-panel);
+      animation: cardFloatIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes cardFloatIn {
+      from {
+        opacity: 0;
+        transform: translateY(18px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .blessing-to {
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .blessing-to::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(243, 210, 133, 0.35), transparent);
+    }
+
+    .blessing-message {
+      font-family: var(--font-serif);
+      font-size: clamp(15px, 1.8vw, 18px);
+      line-height: 1.9;
+      letter-spacing: 0.05em;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+
+    .blessing-from {
+      margin-top: 16px;
+      text-align: right;
+      font-family: var(--font-serif);
+      font-size: 14px;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+    }
+
+    /* Subtle interaction hint */
+    .canvas-hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+      pointer-events: none;
+      opacity: 0.78;
+      transition: opacity 0.6s ease;
+      white-space: nowrap;
+    }
+
+    /* Editor Drawer (Desktop Right Side, Mobile Bottom Sheet) */
+    .editor-drawer {
+      position: fixed;
+      top: 76px;
+      right: 24px;
+      bottom: 24px;
+      width: 372px;
+      max-width: calc(100vw - 32px);
+      z-index: 30;
+      border-radius: var(--radius-lg);
+      background: rgba(9, 15, 24, 0.78);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateX(0);
+      opacity: 1;
+      transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+    }
+
+    .editor-drawer.collapsed {
+      transform: translateX(calc(100% + 40px));
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .editor-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .editor-header h2 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--text-primary);
+    }
+
+    .close-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: var(--text-primary);
+    }
+
+    .editor-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+
+    .char-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .text-input, .text-area {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      line-height: 1.5;
+      outline: none;
+      transition: border-color 0.2s ease, background 0.2s ease;
+      user-select: text;
+    }
+
+    .text-input::placeholder, .text-area::placeholder {
+      color: var(--text-muted);
+    }
+
+    .text-input:focus, .text-area:focus {
+      border-color: rgba(243, 210, 133, 0.55);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .text-area {
+      resize: vertical;
+      min-height: 92px;
+      max-height: 180px;
+    }
+
+    /* Quick Greeting Presets */
+    .preset-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip-btn {
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .chip-btn:hover {
+      border-color: rgba(243, 210, 133, 0.45);
+      color: var(--accent-strong);
+      background: rgba(243, 210, 133, 0.1);
+    }
+
+    /* Theme Swatches */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .theme-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: all 0.22s ease;
+      text-align: left;
+    }
+
+    .theme-option:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    .theme-option.active {
+      border-color: rgba(243, 210, 133, 0.65);
+      background: rgba(243, 210, 133, 0.12);
+      color: var(--text-primary);
+    }
+
+    .swatch-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4), 0 0 10px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Editor Footer & Share Actions */
+    .editor-footer {
+      padding: 14px 20px 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+      background: rgba(4, 8, 14, 0.35);
+    }
+
+    .primary-btn {
+      width: 100%;
+      height: 44px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: linear-gradient(135deg, #f3d285 0%, #d8a74a 100%);
+      color: #161006;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(216, 167, 74, 0.28);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }
+
+    .primary-btn:hover {
+      filter: brightness(1.06);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(216, 167, 74, 0.38);
+    }
+
+    .primary-btn:active {
+      transform: translateY(0);
+    }
+
+    .secondary-btn {
+      width: 100%;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    /* Share Link Output Box */
+    .share-result {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid rgba(243, 210, 133, 0.28);
+    }
+
+    .share-result.visible {
+      display: flex;
+    }
+
+    .share-url-input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: var(--accent-strong);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      outline: none;
+      user-select: all;
+    }
+
+    .share-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* Intro Reveal State */
+    .blessing-stage.intro-hidden {
+      opacity: 0;
+      transform: translateY(24px);
+      pointer-events: none;
+    }
+
+    /* Pure View (Hide UI) */
+    body.pure-view .top-bar,
+    body.pure-view .blessing-stage,
+    body.pure-view .editor-drawer,
+    body.pure-view .canvas-hint {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(10px);
+    }
+
+    .exit-pure-btn {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    body.pure-view .exit-pure-btn {
+      opacity: 0.72;
+      pointer-events: auto;
+    }
+
+    body.pure-view .exit-pure-btn:hover {
+      opacity: 1;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translate(-50%, -20px);
+      z-index: 60;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(15, 24, 38, 0.92);
+      border: 1px solid rgba(243, 210, 133, 0.4);
+      color: var(--accent-strong);
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    /* Responsive Mobile Layout */
+    @media (max-width: 768px) {
+      .top-bar {
+        padding: 14px 16px;
+      }
+
+      .icon-btn .btn-label {
+        display: none;
+      }
+
+      .icon-btn.keep-label .btn-label {
+        display: inline;
+      }
+
+      .blessing-stage {
+        left: 16px;
+        right: 16px;
+        bottom: 34px;
+        max-width: none;
+      }
+
+      .blessing-card {
+        padding: 18px 20px;
+      }
+
+      .editor-drawer {
+        top: auto;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+        max-width: none;
+        max-height: 76vh;
+      }
+
+      .editor-drawer.collapsed {
+        transform: translateY(calc(100% + 28px));
+      }
+
+      .canvas-hint {
+        bottom: 10px;
+        font-size: 10.5px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="3D 发光粒子圣诞树互动场景"></canvas>
+  <div class="vignette"></div>
+
+  <header class="top-bar">
+    <div class="brand-title">
+      <h1 id="display-title">Merry Christmas</h1>
+      <span class="brand-subtitle" id="mode-badge">WINTER STARLIGHT EDITION</span>
+    </div>
+
+    <div class="top-actions">
+      <button id="music-btn" class="icon-btn" type="button" title="播放/暂停八音盒音乐" aria-label="播放或暂停音乐">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"></path>
+          <circle cx="6" cy="18" r="3"></circle>
+          <circle cx="18" cy="16" r="3"></circle>
+        </svg>
+        <span class="btn-label" id="music-label">八音盒</span>
+      </button>
+
+      <button id="pure-btn" class="icon-btn square" type="button" title="纯净观赏模式（隐藏文字与按钮）" aria-label="纯净观赏模式">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
+
+      <button id="toggle-editor-btn" class="icon-btn keep-label" type="button" title="编辑祝福文字" aria-label="编辑祝福">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+        <span class="btn-label" id="toggle-editor-label">编辑祝福</span>
+      </button>
+    </div>
+  </header>
+
+  <button id="exit-pure-btn" class="icon-btn exit-pure-btn" type="button">
+    <span>显示界面</span>
+  </button>
+
+  <main class="blessing-stage" id="blessing-stage">
+    <article class="blessing-card">
+      <div class="blessing-to" id="display-to">TO · 亲爱的你</div>
+      <div class="blessing-message" id="display-message">愿这个冬天的每一片雪花，
+都带着温柔与星光落向你。
+岁末常欢愉，新年皆胜意。</div>
+      <div class="blessing-from" id="display-from">—— 送给你的圣诞星光</div>
+    </article>
+  </main>
+
+  <div class="canvas-hint" id="canvas-hint">拖拽旋转 · 双击或极限放大化作星海 · 点击树顶唤流星雨 · 点击夜空许愿</div>
+
+  <aside class="editor-drawer" id="editor-drawer" aria-label="祝福内容编辑器">
+    <div class="editor-header">
+      <h2>定制你的圣诞祝福</h2>
+      <button id="close-editor-btn" class="close-btn" type="button" aria-label="收起编辑器">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="editor-body">
+      <div class="field-group">
+        <label class="field-label" for="input-title">顶部标题</label>
+        <input id="input-title" class="text-input" type="text" maxlength="36" placeholder="Merry Christmas" />
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="input-to">收件人 (To)</label>
+          <input id="input-to" class="text-input" type="text" maxlength="24" placeholder="亲爱的你" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="input-from">落款 (From)</label>
+          <input id="input-from" class="text-input" type="text" maxlength="24" placeholder="你的名字" />
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label-row">
+          <label class="field-label" for="input-message">祝福正文</label>
+          <span class="char-count" id="char-count">0 / 240</span>
+        </div>
+        <textarea id="input-message" class="text-area" maxlength="240" placeholder="写下你想对 TA 说的话..."></textarea>
+        <div class="preset-chips" id="preset-chips">
+          <button type="button" class="chip-btn" data-preset="warm">温柔浪漫</button>
+          <button type="button" class="chip-btn" data-preset="friend">挚友轻松</button>
+          <button type="button" class="chip-btn" data-preset="geek">代码浪漫</button>
+          <button type="button" class="chip-btn" data-preset="minimal">简短高级</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">视觉主题</span>
+        <div class="theme-grid" id="theme-grid">
+          <button type="button" class="theme-option active" data-theme="0">
+            <span class="swatch-dot" style="background: linear-gradient(135deg, #ffe7a3, #248a5b);"></span>
+            <span>鎏金暖夜</span>
+          </button>
+          <button type="button" class="theme-option" data-theme="1">
+            <span class="swatch-dot" style="background: linear-gradient(135deg, #e0f6ff, #4ca8e8);"></span>
+            <span>极光冰雪</span>
+          </button>
+          <button type="button" class="theme-option" data-theme="2">
+            <span class="swatch-dot" style="background: linear-gradient(135deg, #ffd1a1, #c93448);"></span>
+            <span>绯红冬夜</span>
+          </button>
+          <button type="button" class="theme-option" data-theme="3">
+            <span class="swatch-dot" style="background: linear-gradient(135deg, #ffe2e8, #e695a8);"></span>
+            <span>星愿粉金</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="share-result" id="share-result">
+        <input id="share-url-input" class="share-url-input" type="text" readonly aria-label="生成的分享链接" />
+        <span class="share-note" id="share-note">链接已包含所有祝福与主题，对方打开即直接进入观赏模式。</span>
+      </div>
+    </div>
+
+    <div class="editor-footer">
+      <button id="copy-share-btn" class="primary-btn" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+        <span>生成并复制分享链接</span>
+      </button>
+      <button id="preview-recipient-btn" class="secondary-btn" type="button">预览对方打开的效果</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      /* =========================================================================
+       * 1. Curated Themes & Presets
+       * ========================================================================= */
+      const THEMES = [
+        {
+          id: 0,
+          name: '鎏金暖夜',
+          bgTop: '#040910',
+          bgMid: '#07141c',
+          bgBot: '#0d2229',
+          accent: '#f3d285',
+          accentStrong: '#ffebba',
+          foliage: ['#1d7a52', '#2ca36a', '#48c484', '#d9b566', '#98e0b0'],
+          ribbon: ['#ffe8a8', '#ffd066', '#fff8de'],
+          ornaments: ['#ff5e62', '#ffd166', '#fff2cc', '#ff8a5b'],
+          star: ['#ffffff', '#ffefc2', '#f7be4f'],
+          floor: ['#f5d380', '#40a876', '#ffffff']
+        },
+        {
+          id: 1,
+          name: '极光冰雪',
+          bgTop: '#030812',
+          bgMid: '#071526',
+          bgBot: '#0d2540',
+          accent: '#9ad8ff',
+          accentStrong: '#dcf2ff',
+          foliage: ['#2e78b8', '#4fa5e0', '#8ad2ff', '#d4f1ff', '#5ec8d8'],
+          ribbon: ['#ffffff', '#bfeaff', '#85d0ff'],
+          ornaments: ['#ffffff', '#7ce8ff', '#a8c6ff', '#ffe9b8'],
+          star: ['#ffffff', '#d8f3ff', '#7ac8ff'],
+          floor: ['#8fd4ff', '#d6f2ff', '#ffffff']
+        },
+        {
+          id: 2,
+          name: '绯红冬夜',
+          bgTop: '#0c0407',
+          bgMid: '#18080d',
+          bgBot: '#290f16',
+          accent: '#f5c589',
+          accentStrong: '#ffe4be',
+          foliage: ['#236e4d', '#2f8a5e', '#d99e52', '#c9384b', '#f2cf8d'],
+          ribbon: ['#ffe5a8', '#ffb86c', '#fff4d9'],
+          ornaments: ['#ff4757', '#ffd166', '#ff8c94', '#fff3db'],
+          star: ['#ffffff', '#ffe5b4', '#f2a65a'],
+          floor: ['#f2bc74', '#d9485b', '#fff0d4']
+        },
+        {
+          id: 3,
+          name: '星愿粉金',
+          bgTop: '#0d060b',
+          bgMid: '#180c15',
+          bgBot: '#281523',
+          accent: '#f7c5d0',
+          accentStrong: '#ffe8ee',
+          foliage: ['#c97b91', '#e8a2b4', '#f5ced8', '#f2d3a8', '#fff0f4'],
+          ribbon: ['#fff3d6', '#ffd2dc', '#ffe3b3'],
+          ornaments: ['#ff9eb5', '#ffe1a8', '#ffffff', '#f5b8c8'],
+          star: ['#ffffff', '#ffe6ec', '#f7be86'],
+          floor: ['#f7bfd0', '#ffe2b8', '#ffffff']
+        }
+      ];
+
+      const PRESETS = {
+        warm: {
+          title: 'Merry Christmas',
+          to: '亲爱的你',
+          message: '愿这个冬天的每一片雪花，\n都带着温柔与星光落向你。\n岁末常欢愉，新年皆胜意。',
+          from: '一直惦记你的人'
+        },
+        friend: {
+          title: 'Merry Christmas',
+          to: '我最好的朋友',
+          message: '圣诞快乐！\n这一年辛苦啦，愿你新的一年\n烦恼清零，好运爆棚，天天开心！',
+          from: '你的老友'
+        },
+        geek: {
+          title: 'Merry Christmas',
+          to: 'My Favorite Human',
+          message: 'while (winter) {\n  snow.fall();\n  wishes.send(to = "you");\n  happiness++;\n}\n愿你的世界永无 Bug，永远闪闪发光。',
+          from: '0x1225'
+        },
+        minimal: {
+          title: 'Joyeux Noël',
+          to: 'To You',
+          message: '冬夜漫长，星光为伴。\n愿你平安喜乐，万事顺遂。',
+          from: 'Best Wishes'
+        }
+      };
+
+      const DEFAULT_STATE = {
+        title: PRESETS.warm.title,
+        to: PRESETS.warm.to,
+        message: PRESETS.warm.message,
+        from: PRESETS.warm.from,
+        theme: 0
+      };
+
+      /* =========================================================================
+       * 2. Compact URL Hash Compression (Deflate-Raw + Base64URL with fallback)
+       * ========================================================================= */
+      function bytesToBase64Url(bytes) {
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) {
+          bin += String.fromCharCode(bytes[i]);
+        }
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+
+      function base64UrlToBytes(str) {
+        let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) {
+          bytes[i] = bin.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      async function compressPayload(obj) {
+        const compact = {};
+        if (obj.title && obj.title !== DEFAULT_STATE.title) compact.h = obj.title;
+        if (obj.to) compact.t = obj.to;
+        if (obj.message) compact.m = obj.message;
+        if (obj.from) compact.f = obj.from;
+        if (obj.theme) compact.c = obj.theme;
+
+        const jsonBytes = new TextEncoder().encode(JSON.stringify(compact));
+
+        if (typeof CompressionStream !== 'undefined') {
+          try {
+            const cs = new CompressionStream('deflate-raw');
+            const writer = cs.writable.getWriter();
+            writer.write(jsonBytes);
+            writer.close();
+            const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+            if (compressed.length < jsonBytes.length) {
+              return 'v1.' + bytesToBase64Url(compressed);
+            }
+          } catch (_) {
+            // Fall through to raw UTF-8 base64url
+          }
+        }
+        return 'v0.' + bytesToBase64Url(jsonBytes);
+      }
+
+      async function decompressPayload(hashStr) {
+        if (!hashStr) return null;
+        const clean = hashStr.replace(/^#/, '');
+        let jsonText = null;
+
+        try {
+          if (clean.startsWith('v1.') && typeof DecompressionStream !== 'undefined') {
+            const bytes = base64UrlToBytes(clean.slice(3));
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            writer.write(bytes);
+            writer.close();
+            const decompressed = await new Response(ds.readable).arrayBuffer();
+            jsonText = new TextDecoder().decode(decompressed);
+          } else if (clean.startsWith('v0.')) {
+            const bytes = base64UrlToBytes(clean.slice(3));
+            jsonText = new TextDecoder().decode(bytes);
+          } else {
+            return null;
+          }
+          const parsed = JSON.parse(jsonText);
+          return {
+            title: typeof parsed.h === 'string' && parsed.h.trim() ? parsed.h : DEFAULT_STATE.title,
+            to: typeof parsed.t === 'string' ? parsed.t : '',
+            message: typeof parsed.m === 'string' ? parsed.m : DEFAULT_STATE.message,
+            from: typeof parsed.f === 'string' ? parsed.f : '',
+            theme: Number.isInteger(parsed.c) && parsed.c >= 0 && parsed.c < THEMES.length ? parsed.c : 0
+          };
+        } catch (_) {
+          return null;
+        }
+      }
+
+      /* =========================================================================
+       * 3. Web Audio Synthesized Music Box (Zero external MP3 dependencies)
+       * ========================================================================= */
+      class MusicBox {
+        constructor() {
+          this.ctx = null;
+          this.isPlaying = false;
+          this.timer = null;
+          this.stepIndex = 0;
+
+          // "We Wish You a Merry Christmas" (MIDI note numbers, duration in beats)
+          this.melody = [
+            [62, 1], [67, 1], [67, 0.5], [69, 0.5], [67, 0.5], [66, 0.5],
+            [64, 1], [64, 1], [64, 1],
+            [69, 1], [69, 0.5], [71, 0.5], [69, 0.5], [67, 0.5],
+            [66, 1], [62, 1], [62, 1],
+            [71, 1], [71, 0.5], [72, 0.5], [71, 0.5], [69, 0.5],
+            [67, 1], [64, 1], [62, 0.5], [62, 0.5],
+            [64, 1], [69, 1], [66, 1],
+            [67, 2.5], [0, 0.5],
+            // Second phrase
+            [62, 1], [67, 1], [67, 1], [67, 1],
+            [66, 2], [66, 1],
+            [67, 1], [66, 1], [64, 1],
+            [62, 2], [69, 1],
+            [71, 1], [69, 0.5], [69, 0.5], [67, 0.5], [67, 0.5],
+            [74, 1], [62, 1], [62, 0.5], [62, 0.5],
+            [64, 1], [69, 1], [66, 1],
+            [67, 2.5], [0, 0.5]
+          ];
+        }
+
+        midiToFreq(midi) {
+          return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+
+        playNote(midi, durationSec) {
+          if (!this.ctx || midi === 0) return;
+          const now = this.ctx.currentTime;
+          const freq = this.midiToFreq(midi + 12); // music box upper octave
+
+          const osc = this.ctx.createOscillator();
+          const overtone = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const overGain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+
+          overtone.type = 'triangle';
+          overtone.frequency.setValueAtTime(freq * 2, now);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.11, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(durationSec * 2.2, 1.3));
+
+          overGain.gain.setValueAtTime(0.0001, now);
+          overGain.gain.exponentialRampToValueAtTime(0.024, now + 0.01);
+          overGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+          osc.connect(gain);
+          overtone.connect(overGain);
+          overGain.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          overtone.start(now);
+          osc.stop(now + Math.max(durationSec * 2.3, 1.4));
+          overtone.stop(now + 0.5);
+        }
+
+        scheduleNext() {
+          if (!this.isPlaying) return;
+          const [midi, beats] = this.melody[this.stepIndex];
+          const beatSec = 0.42;
+          const dur = beats * beatSec;
+          this.playNote(midi, dur);
+          this.stepIndex = (this.stepIndex + 1) % this.melody.length;
+          this.timer = setTimeout(() => this.scheduleNext(), dur * 1000);
+        }
+
+        toggle() {
+          if (this.isPlaying) {
+            this.stop();
+            return false;
+          }
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return false;
+          if (!this.ctx) this.ctx = new AudioCtx();
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          this.isPlaying = true;
+          this.scheduleNext();
+          return true;
+        }
+
+        stop() {
+          this.isPlaying = false;
+          if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+          }
+        }
+      }
+
+      /* =========================================================================
+       * 4. 3D Glowing Particle Christmas Tree Renderer
+       * ========================================================================= */
+      const canvas = document.getElementById('scene');
+      const ctx = canvas.getContext('2d', { alpha: true });
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      // Camera & Interaction State
+      let rotY = 0;
+      let rotX = 0.11;
+      let velY = 0.0036;
+      let targetZoom = 1;
+      let zoom = 1;
+      let isDragging = false;
+      let lastPointerX = 0;
+      let lastPointerY = 0;
+      let pointerDownX = 0;
+      let pointerDownY = 0;
+      let pointerDownTime = 0;
+      let lastTapTime = 0;
+      let lastTapX = 0;
+      let lastTapY = 0;
+      let pinchDist = 0;
+      let currentTheme = THEMES[0];
+
+      // Intro Assembly, Nebula Scatter, Energy Wave & Atmospheric FX State
+      let introProgress = 0;          // 0 -> 1 over ~4.2s (bottom-to-top convergence)
+      let introStarPopped = false;
+      let introBlessingRevealed = false;
+      let introShouldRevealCard = false;
+
+      let manualScatter = false;      // toggled via double-click / double-tap
+      let scatterAmount = 0;          // 0 (tree) -> 1 (cosmic starfield nebula)
+      let scatterHintShown = false;
+
+      let treeWavePos = -1;           // 1.15 -> -0.25 descending wave on star click
+      let starBurstScale = 0;         // expanding halo ring when star topper is clicked
+      let starScreenPos = { x: -999, y: -999, visible: false };
+
+      let nextMeteorAt = 2.8;         // seconds
+      let nextFireworkAt = 1.4;       // seconds (continuous grand fireworks)
+
+      // Pre-rendered glow sprites cache for silky 60fps additive bloom
+      const spriteCache = new Map();
+      function getGlowSprite(color, soft = true) {
+        const key = color + (soft ? '_s' : '_h');
+        if (spriteCache.has(key)) return spriteCache.get(key);
+        const size = 64;
+        const off = document.createElement('canvas');
+        off.width = size;
+        off.height = size;
+        const octx = off.getContext('2d');
+        const half = size / 2;
+        const grad = octx.createRadialGradient(half, half, 0, half, half, half);
+        if (soft) {
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.22, color);
+          grad.addColorStop(0.55, color + '44');
+          grad.addColorStop(1, color + '00');
+        } else {
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.35, color);
+          grad.addColorStop(0.75, color + '55');
+          grad.addColorStop(1, color + '00');
+        }
+        octx.fillStyle = grad;
+        octx.fillRect(0, 0, size, size);
+        spriteCache.set(key, off);
+        return off;
+      }
+
+      // Pre-rendered faceted emerald crystal sprite (modeled after the reference jade/emerald gemstone)
+      let emeraldGemSprite = null;
+      function getEmeraldGemSprite() {
+        if (emeraldGemSprite) return emeraldGemSprite;
+        const size = 128;
+        const off = document.createElement('canvas');
+        off.width = size;
+        off.height = size;
+        const g = off.getContext('2d');
+        const cx = size / 2;
+        const cy = size / 2;
+
+        // Soft luminous emerald aura behind the crystal
+        const aura = g.createRadialGradient(cx, cy, 8, cx, cy, 60);
+        aura.addColorStop(0, 'rgba(130, 255, 185, 0.85)');
+        aura.addColorStop(0.45, 'rgba(42, 196, 118, 0.35)');
+        aura.addColorStop(1, 'rgba(20, 110, 68, 0)');
+        g.fillStyle = aura;
+        g.fillRect(0, 0, size, size);
+
+        // Crystal vertices (asymmetric faceted emerald prism matching reference)
+        const vTopL = [54, 16];
+        const vTopR = [82, 20];
+        const vMidR = [98, 66];
+        const vBotR = [84, 104];
+        const vBotL = [44, 108];
+        const vMidL = [26, 60];
+        const vApex = [68, 44];   // bright upper crystal ridge junction
+        const vCore = [52, 62];   // central faceted valley
+
+        function fillFacet(pts, c0, c1, x0, y0, x1, y1) {
+          g.beginPath();
+          g.moveTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+          g.closePath();
+          const grad = g.createLinearGradient(x0, y0, x1, y1);
+          grad.addColorStop(0, c0);
+          grad.addColorStop(1, c1);
+          g.fillStyle = grad;
+          g.fill();
+        }
+
+        // 1. Top-left bright jade table facet
+        fillFacet([vTopL, vTopR, vApex, vCore, vMidL], '#8bf2b8', '#2da668', 40, 18, 72, 62);
+        // 2. Upper-right luminous specular facet
+        fillFacet([vTopR, vMidR, vApex], '#d6ffe6', '#46bf7c', 82, 20, 92, 64);
+        // 3. Center-right deep emerald shadow facet
+        fillFacet([vApex, vMidR, vBotR, vCore], '#0d472c', '#248252', 68, 44, 92, 100);
+        // 4. Lower-right warm chartreuse-emerald translucent glow facet
+        fillFacet([vCore, vBotR, vBotL], '#2d8f58', '#a6eb7a', 52, 66, 82, 106);
+        // 5. Lower-left beveled forest facet
+        fillFacet([vMidL, vCore, vBotL], '#155436', '#2a8556', 26, 60, 52, 106);
+
+        // Crisp translucent outer & inner facet ridge highlights
+        g.strokeStyle = 'rgba(220, 255, 232, 0.78)';
+        g.lineWidth = 1.6;
+        g.lineJoin = 'round';
+        g.beginPath();
+        g.moveTo(vTopL[0], vTopL[1]);
+        g.lineTo(vTopR[0], vTopR[1]);
+        g.lineTo(vMidR[0], vMidR[1]);
+        g.lineTo(vBotR[0], vBotR[1]);
+        g.lineTo(vBotL[0], vBotL[1]);
+        g.lineTo(vMidL[0], vMidL[1]);
+        g.closePath();
+        g.stroke();
+
+        // Internal luminous crystal ridges
+        g.strokeStyle = 'rgba(235, 255, 242, 0.85)';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.moveTo(vMidL[0], vMidL[1]); g.lineTo(vCore[0], vCore[1]);
+        g.lineTo(vApex[0], vApex[1]); g.lineTo(vTopR[0], vTopR[1]);
+        g.moveTo(vApex[0], vApex[1]); g.lineTo(vMidR[0], vMidR[1]);
+        g.moveTo(vCore[0], vCore[1]); g.lineTo(vBotR[0], vBotR[1]);
+        g.stroke();
+
+        // Specular diamond glint on the upper crystal ridge
+        g.save();
+        g.translate(vApex[0], vApex[1]);
+        const glint = g.createRadialGradient(0, 0, 0, 0, 0, 14);
+        glint.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+        glint.addColorStop(0.45, 'rgba(190, 255, 215, 0.55)');
+        glint.addColorStop(1, 'rgba(190, 255, 215, 0)');
+        g.fillStyle = glint;
+        g.beginPath();
+        g.arc(0, 0, 14, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+
+        emeraldGemSprite = off;
+        return off;
+      }
+
+      // Particle collections
+      let treeParticles = [];
+      let ribbonParticles = [];
+      let ornaments = [];
+      let floorParticles = [];
+      let snowParticles = [];
+      let bgStars = [];
+      let wishSparks = [];
+      let meteors = [];
+      let fireworkShells = [];
+      let fireworkSparks = [];
+
+      function pick(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function randomSphereScatter() {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = 270 + Math.random() * 380;
+        return {
+          sx: r * Math.sin(phi) * Math.cos(theta),
+          sy: r * Math.cos(phi) * 0.78,
+          sz: r * Math.sin(phi) * Math.sin(theta)
+        };
+      }
+
+      function startIntro(hideBlessingCard = false) {
+        introProgress = 0;
+        introStarPopped = false;
+        introBlessingRevealed = !hideBlessingCard;
+        introShouldRevealCard = hideBlessingCard;
+        manualScatter = false;
+        scatterAmount = 0;
+        targetZoom = 1;
+        treeWavePos = -1;
+        const stage = document.getElementById('blessing-stage');
+        if (stage) {
+          if (hideBlessingCard) stage.classList.add('intro-hidden');
+          else stage.classList.remove('intro-hidden');
+        }
+      }
+
+      function buildSceneGeometry(theme) {
+        currentTheme = theme;
+        treeParticles = [];
+        ribbonParticles = [];
+        ornaments = [];
+        floorParticles = [];
+
+        const treeHeight = 460;
+        const baseRadius = 185;
+        const topY = -treeHeight * 0.52;
+
+        // A. Tiered Pine Foliage Volume (1450 particles)
+        const tiers = 7;
+        for (let i = 0; i < 1450; i++) {
+          const u = Math.pow(Math.random(), 0.78); // 0 = top, 1 = bottom
+          const yRaw = u * treeHeight;
+          const tierPhase = (u * tiers) % 1;
+          const tierFlare = 0.74 + 0.34 * Math.pow(tierPhase, 0.85);
+          const maxR = (u * baseRadius + 5) * tierFlare;
+          const radialDist = maxR * (0.35 + 0.65 * Math.pow(Math.random(), 0.45));
+          const angle = Math.random() * Math.PI * 2;
+          const droop = (radialDist / (baseRadius + 1)) * 18;
+          const sc = randomSphereScatter();
+
+          treeParticles.push({
+            x: Math.cos(angle) * radialDist,
+            y: topY + yRaw + droop,
+            z: Math.sin(angle) * radialDist,
+            hNorm: 1 - u, // 0 = bottom, 1 = top (for bottom-to-top assembly)
+            sx: sc.sx,
+            sy: sc.sy,
+            sz: sc.sz,
+            introAngle: (Math.random() > 0.5 ? 1 : -1) * (1.4 + Math.random() * 2.2),
+            introRadius: 85 + Math.random() * 145,
+            introY: 45 + Math.random() * 95,
+            size: 3.2 + Math.random() * 5.2,
+            color: pick(theme.foliage),
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.8 + Math.random() * 2.2,
+            alpha: 0.45 + Math.random() * 0.48
+          });
+        }
+
+        // B. Twin Luminous Spiral Garlands (460 particles)
+        const turns = 4.6;
+        for (let strand = 0; strand < 2; strand++) {
+          const strandOffset = strand * Math.PI;
+          const count = 230;
+          for (let i = 0; i < count; i++) {
+            const u = i / count;
+            const angle = u * Math.PI * 2 * turns + strandOffset;
+            const r = (u * baseRadius * 0.96 + 8) + (Math.random() - 0.5) * 6;
+            const y = topY + u * treeHeight + (Math.random() - 0.5) * 5;
+            const sc = randomSphereScatter();
+            ribbonParticles.push({
+              x: Math.cos(angle) * r,
+              y,
+              z: Math.sin(angle) * r,
+              u,
+              hNorm: 1 - u,
+              sx: sc.sx,
+              sy: sc.sy,
+              sz: sc.sz,
+              introAngle: 2.2 + Math.random() * 1.4,
+              introRadius: 65 + Math.random() * 110,
+              introY: 38 + Math.random() * 65,
+              size: 4.5 + Math.random() * 5.5,
+              color: pick(theme.ribbon),
+              phase: u * 16 + strand * Math.PI,
+              alpha: 0.72 + Math.random() * 0.28
+            });
+          }
+        }
+
+        // C. Hanging Glowing Ornaments (76 baubles)
+        for (let i = 0; i < 76; i++) {
+          const u = 0.14 + Math.random() * 0.82;
+          const angle = Math.random() * Math.PI * 2;
+          const r = (u * baseRadius * 0.92 + 6) * (0.92 + Math.random() * 0.12);
+          const y = topY + u * treeHeight + 6;
+          const sc = randomSphereScatter();
+          ornaments.push({
+            x: Math.cos(angle) * r,
+            y,
+            z: Math.sin(angle) * r,
+            hNorm: 1 - u,
+            sx: sc.sx,
+            sy: sc.sy,
+            sz: sc.sz,
+            introAngle: 1.8 + Math.random() * 1.6,
+            introRadius: 75 + Math.random() * 105,
+            introY: 40 + Math.random() * 70,
+            size: 9 + Math.random() * 7,
+            color: pick(theme.ornaments),
+            phase: Math.random() * Math.PI * 2,
+            speed: 1.2 + Math.random() * 1.8
+          });
+        }
+
+        // D. Ground Starlight Pool (260 floor particles)
+        const floorY = topY + treeHeight + 28;
+        for (let i = 0; i < 260; i++) {
+          const ring = Math.pow(Math.random(), 0.65);
+          const r = 24 + ring * 265;
+          const angle = Math.random() * Math.PI * 2;
+          floorParticles.push({
+            x: Math.cos(angle) * r,
+            y: floorY + (Math.random() - 0.5) * 6,
+            z: Math.sin(angle) * r,
+            ring,
+            size: 2.5 + Math.random() * 4.2,
+            color: pick(theme.floor),
+            phase: Math.random() * Math.PI * 2,
+            alpha: (1 - ring * 0.72) * (0.3 + Math.random() * 0.45)
+          });
+        }
+      }
+
+      function initAtmosphere() {
+        snowParticles = [];
+        for (let i = 0; i < 210; i++) {
+          snowParticles.push({
+            x: (Math.random() - 0.5) * 1100,
+            y: (Math.random() - 0.5) * 900,
+            z: (Math.random() - 0.5) * 900,
+            vy: 0.45 + Math.random() * 1.15,
+            sway: Math.random() * Math.PI * 2,
+            swaySpeed: 0.008 + Math.random() * 0.015,
+            size: 2 + Math.random() * 4.5,
+            alpha: 0.25 + Math.random() * 0.65
+          });
+        }
+
+        bgStars = [];
+        for (let i = 0; i < 120; i++) {
+          bgStars.push({
+            x: Math.random(),
+            y: Math.random() * 0.78,
+            size: 0.7 + Math.random() * 1.5,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.6 + Math.random() * 1.8
+          });
+        }
+      }
+
+      function spawnWishSparks(screenX, screenY, count = 24, boost = 1) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = (0.8 + Math.random() * 3.4) * boost;
+          wishSparks.push({
+            x: screenX,
+            y: screenY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 1.1,
+            life: 1,
+            decay: 0.012 + Math.random() * 0.015,
+            size: 5 + Math.random() * 8,
+            color: pick(currentTheme.ribbon)
+          });
+        }
+      }
+
+      function spawnMeteor(startX, startY) {
+        const fromLeft = startX !== undefined ? startX < width * 0.5 : Math.random() < 0.55;
+        const x = startX !== undefined ? startX : (fromLeft ? width * (0.04 + Math.random() * 0.42) : width * (0.54 + Math.random() * 0.42));
+        const y = startY !== undefined ? startY : height * (0.04 + Math.random() * 0.24);
+        const speed = 8.8 + Math.random() * 4.5;
+        const angle = fromLeft ? (0.32 + Math.random() * 0.24) : (Math.PI - 0.32 - Math.random() * 0.24);
+
+        meteors.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          len: 240 + Math.random() * 140,   // much longer luminous comet tail
+          life: 1,
+          decay: 0.0085 + Math.random() * 0.004,
+          width: 6.5 + Math.random() * 3.5, // noticeably thicker tapered ribbon
+          gemSize: 30 + Math.random() * 12, // larger emerald crystal head
+          rot: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() > 0.5 ? 1 : -1) * (0.018 + Math.random() * 0.02),
+          color: '#5cf0a2'
+        });
+      }
+
+      function triggerMeteorShower() {
+        for (let i = 0; i < 5; i++) {
+          setTimeout(() => spawnMeteor(), i * 240 + Math.random() * 100);
+        }
+        treeWavePos = 1.15;
+        starBurstScale = 0.01;
+        if (starScreenPos.visible) {
+          spawnWishSparks(starScreenPos.x, starScreenPos.y, 38, 1.4);
+        }
+      }
+
+      function spawnDistantFirework(forcedSide) {
+        const leftSide = forcedSide !== undefined ? forcedSide : Math.random() < 0.5;
+        const x = leftSide
+          ? width * (0.08 + Math.random() * 0.24)
+          : width * (0.68 + Math.random() * 0.24);
+        const targetY = height * (0.14 + Math.random() * 0.28);
+        const startY = height * (0.82 + Math.random() * 0.14);
+        const palette = [
+          pick(currentTheme.ribbon),
+          pick(currentTheme.ornaments),
+          pick(currentTheme.foliage),
+          '#ffffff'
+        ];
+        fireworkShells.push({
+          x,
+          y: startY,
+          vx: (Math.random() - 0.5) * 0.9,
+          vy: -(8.2 + Math.random() * 2.6),
+          targetY,
+          palette,
+          trail: []
+        });
+      }
+
+      function explodeFirework(shell) {
+        // Keep active spark count bounded for consistent 60fps
+        if (fireworkSparks.length > 900) {
+          fireworkSparks.splice(0, fireworkSparks.length - 820);
+        }
+        const scaleFactor = Math.min(1.35, Math.max(0.85, Math.min(width, height) / 760));
+        const count = 66 + Math.floor(Math.random() * 26);
+        const isWillow = Math.random() < 0.55;
+        const hasInnerRing = Math.random() < 0.5;
+
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.12;
+          // Much wider explosion radius
+          const speed = ((isWillow ? 2.6 : 3.4) + Math.random() * (isWillow ? 4.4 : 4.8)) * scaleFactor;
+          fireworkSparks.push({
+            x: shell.x,
+            y: shell.y,
+            px: shell.x,
+            py: shell.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            drag: isWillow ? 0.974 : 0.968,
+            gravity: isWillow ? 0.038 : 0.025,
+            life: 1,
+            // Longer-lasting blooms (~3.5 to 5.5 seconds)
+            decay: isWillow ? (0.0042 + Math.random() * 0.0028) : (0.0055 + Math.random() * 0.0032),
+            size: 4.5 + Math.random() * 5.2,
+            color: pick(shell.palette),
+            twinkle: Math.random() * Math.PI * 2
+          });
+        }
+
+        if (hasInnerRing) {
+          const innerCount = 26;
+          const innerColor = pick(shell.palette);
+          for (let i = 0; i < innerCount; i++) {
+            const angle = (Math.PI * 2 * i) / innerCount;
+            const speed = (1.6 + Math.random() * 1.3) * scaleFactor;
+            fireworkSparks.push({
+              x: shell.x,
+              y: shell.y,
+              px: shell.x,
+              py: shell.y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              drag: 0.968,
+              gravity: 0.022,
+              life: 1,
+              decay: 0.0058 + Math.random() * 0.003,
+              size: 4 + Math.random() * 3.5,
+              color: innerColor,
+              twinkle: Math.random() * Math.PI * 2
+            });
+          }
+        }
+      }
+
+      function computeParticleState(p, animTime, introP, scatterA, wavePos) {
+        // 1. Bottom-to-top spiral assembly
+        let introAlpha = 1;
+        let introBoost = 0;
+        let px = p.x;
+        let py = p.y;
+        let pz = p.z;
+
+        if (introP < 1) {
+          const rawT = (introP * 1.38 - p.hNorm * 0.95) / 0.36;
+          if (rawT <= 0) return null;
+          const t = rawT >= 1 ? 1 : rawT;
+          const e = easeOutCubic(t);
+          const inv = 1 - e;
+          const ang = p.introAngle * inv;
+          const ca = Math.cos(ang);
+          const sa = Math.sin(ang);
+          const rx = p.x * ca - p.z * sa;
+          const rz = p.x * sa + p.z * ca;
+          const radLen = Math.hypot(rx, rz) || 1;
+          px = rx + (rx / radLen) * p.introRadius * inv;
+          pz = rz + (rz / radLen) * p.introRadius * inv;
+          py = p.y + p.introY * inv;
+          introAlpha = Math.min(1, t * 1.6);
+          introBoost = inv * 0.95; // extra sparkle while locking in
+        }
+
+        // 2. 3D Nebula Scatter / Spiral Regroup
+        if (scatterA > 0.002) {
+          const eS = scatterA * scatterA * (3 - 2 * scatterA);
+          // Swirling vortex twist during mid-transition
+          const twist = scatterA * (1 - scatterA) * 2.4;
+          const driftX = Math.sin(animTime * 0.7 + p.phase) * 14 * eS;
+          const driftY = Math.cos(animTime * 0.55 + p.phase) * 14 * eS;
+          const driftZ = Math.sin(animTime * 0.62 + p.phase * 1.3) * 14 * eS;
+
+          const lx = px + (p.sx + driftX - px) * eS;
+          const ly = py + (p.sy + driftY - py) * eS;
+          const lz = pz + (p.sz + driftZ - pz) * eS;
+
+          if (twist > 0.001) {
+            const ct = Math.cos(twist);
+            const st = Math.sin(twist);
+            px = lx * ct - lz * st;
+            pz = lx * st + lz * ct;
+            py = ly;
+          } else {
+            px = lx;
+            py = ly;
+            pz = lz;
+          }
+        }
+
+        // 3. Descending energy wave boost (when star topper is clicked)
+        let waveBoost = 0;
+        if (wavePos > -0.25) {
+          const dist = Math.abs(p.hNorm - wavePos);
+          if (dist < 0.16) {
+            waveBoost = (1 - dist / 0.16) * 1.25;
+          }
+        }
+
+        return { x: px, y: py, z: pz, alphaMul: introAlpha, boost: introBoost + waveBoost };
+      }
+
+      function project3D(x, y, z, cosY, sinY, cosX, sinX, cx, cy, fov) {
+        const x1 = x * cosY - z * sinY;
+        const z1 = x * sinY + z * cosY;
+        const y2 = y * cosX - z1 * sinX;
+        const z2 = y * sinX + z1 * cosX;
+
+        const depth = fov + z2;
+        if (depth <= 20) return null;
+        const scale = fov / depth;
+        return {
+          x: cx + x1 * scale,
+          y: cy + y2 * scale,
+          scale,
+          z: z2
+        };
+      }
+
+      function drawStarTopper(px, py, scale, time, appearScale) {
+        if (appearScale <= 0.01) return;
+        const pulse = (0.92 + 0.12 * Math.sin(time * 2.8)) * appearScale;
+        const outerR = 24 * scale * pulse;
+        const innerR = 9 * scale * pulse;
+
+        ctx.save();
+        ctx.translate(px, py);
+
+        // Soft volumetric halo
+        const haloSprite = getGlowSprite(currentTheme.star[2], true);
+        const haloSize = 150 * scale * pulse;
+        ctx.globalAlpha = 0.8 * Math.min(1, appearScale);
+        ctx.drawImage(haloSprite, -haloSize / 2, -haloSize / 2, haloSize, haloSize);
+
+        // Expanding starburst shockwave ring on click/reveal
+        if (starBurstScale > 0 && starBurstScale < 1) {
+          const ringR = (22 + starBurstScale * 135) * scale;
+          ctx.beginPath();
+          ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = currentTheme.star[1];
+          ctx.lineWidth = (2.6 * (1 - starBurstScale)) * scale;
+          ctx.globalAlpha = (1 - starBurstScale) * 0.72;
+          ctx.stroke();
+        }
+
+        // Rotating slender cross-flare rays
+        ctx.save();
+        ctx.rotate(time * 0.25);
+        for (let r = 0; r < 2; r++) {
+          ctx.rotate(Math.PI / 4);
+          const rayLen = (r === 0 ? 60 : 38) * scale * pulse;
+          const grad = ctx.createLinearGradient(-rayLen, 0, rayLen, 0);
+          grad.addColorStop(0, 'rgba(255,255,255,0)');
+          grad.addColorStop(0.5, 'rgba(255,250,232,0.85)');
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(-rayLen, -1.15 * scale, rayLen * 2, 2.3 * scale);
+
+          const gradV = ctx.createLinearGradient(0, -rayLen, 0, rayLen);
+          gradV.addColorStop(0, 'rgba(255,255,255,0)');
+          gradV.addColorStop(0.5, 'rgba(255,250,232,0.85)');
+          gradV.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = gradV;
+          ctx.fillRect(-1.15 * scale, -rayLen, 2.3 * scale, rayLen * 2);
+        }
+        ctx.restore();
+
+        // Crisp 5-pointed star core
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const rad = (i % 2 === 0 ? outerR : innerR);
+          const a = (i * Math.PI) / 5 - Math.PI / 2;
+          const sx = Math.cos(a) * rad;
+          const sy = Math.sin(a) * rad;
+          if (i === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+        const starGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, outerR);
+        starGrad.addColorStop(0, '#ffffff');
+        starGrad.addColorStop(0.55, currentTheme.star[1]);
+        starGrad.addColorStop(1, currentTheme.star[2]);
+        ctx.globalAlpha = 0.98 * Math.min(1, appearScale);
+        ctx.fillStyle = starGrad;
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+      }
+
+      function getSceneCenter() {
+        const editorOpen = !document.getElementById('editor-drawer').classList.contains('collapsed');
+        const isDesktop = width > 768;
+        const cx = (editorOpen && isDesktop) ? width * 0.41 : width * 0.5;
+        const cy = isDesktop ? height * 0.51 : height * 0.45;
+        return { cx, cy };
+      }
+
+      let animTime = 0;
+      let lastFrameTs = performance.now();
+
+      function render(nowTs) {
+        const dt = Math.min(0.05, Math.max(0.001, (nowTs - lastFrameTs) / 1000));
+        lastFrameTs = nowTs;
+        animTime += dt;
+
+        // Advance bottom-to-top intro assembly (~4.2 seconds)
+        if (introProgress < 1) {
+          introProgress = Math.min(1, introProgress + dt / 4.2);
+          if (introShouldRevealCard && !introBlessingRevealed && introProgress >= 0.85) {
+            introBlessingRevealed = true;
+            const stage = document.getElementById('blessing-stage');
+            if (stage) stage.classList.remove('intro-hidden');
+          }
+          if (!introStarPopped && introProgress >= 0.92) {
+            introStarPopped = true;
+            starBurstScale = 0.01;
+            spawnMeteor();
+            if (starScreenPos.visible) {
+              spawnWishSparks(starScreenPos.x, starScreenPos.y, 26, 1.2);
+            }
+          }
+        }
+
+        // Advance nebula scatter physics (triggered by double-click OR zooming past 1.45x)
+        const scatterTarget = (manualScatter || targetZoom > 1.45) ? 1 : 0;
+        scatterAmount += (scatterTarget - scatterAmount) * Math.min(1, dt * 3.1);
+
+        // Advance descending tree energy wave & starburst halo
+        if (treeWavePos > -0.25) {
+          treeWavePos -= dt * 0.88;
+        }
+        if (starBurstScale > 0) {
+          starBurstScale += dt * 1.45;
+          if (starBurstScale >= 1) starBurstScale = 0;
+        }
+
+        // Ambient emerald shooting stars & continuous grand fireworks
+        if (animTime >= nextMeteorAt) {
+          spawnMeteor();
+          nextMeteorAt = animTime + 4.8 + Math.random() * 4.5;
+        }
+        if (animTime >= nextFireworkAt) {
+          const side = Math.random() < 0.5;
+          spawnDistantFirework(side);
+          // 35% chance for a graceful paired firework on the opposite flank
+          if (Math.random() < 0.35) {
+            setTimeout(() => spawnDistantFirework(!side), 420);
+          }
+          nextFireworkAt = animTime + 1.6 + Math.random() * 1.9;
+        }
+
+        // Smooth camera physics (gentle spin boost during intro convergence)
+        if (!isDragging) {
+          const introSpinBoost = introProgress < 1 ? (1 - introProgress) * 0.0085 : 0;
+          rotY += velY + introSpinBoost;
+          velY = velY * 0.96 + 0.0036 * 0.04;
+        }
+        zoom += (targetZoom - zoom) * 0.1;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+
+        // 1. Background twinkling night sky stars
+        ctx.globalCompositeOperation = 'source-over';
+        for (let i = 0; i < bgStars.length; i++) {
+          const s = bgStars[i];
+          const twinkle = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(animTime * s.speed + s.phase));
+          ctx.fillStyle = `rgba(255, 250, 240, ${twinkle * 0.55})`;
+          ctx.beginPath();
+          ctx.arc(s.x * width, s.y * height, s.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Switch to additive blending for luminous background fireworks
+        ctx.globalCompositeOperation = 'lighter';
+
+        // 2. Continuous grand background fireworks (behind the tree)
+        for (let i = fireworkShells.length - 1; i >= 0; i--) {
+          const sh = fireworkShells[i];
+          sh.trail.push({ x: sh.x, y: sh.y });
+          if (sh.trail.length > 14) sh.trail.shift();
+          sh.x += sh.vx;
+          sh.y += sh.vy;
+          sh.vy *= 0.985;
+
+          for (let t = 0; t < sh.trail.length; t++) {
+            const pt = sh.trail[t];
+            const ratio = (t + 1) / sh.trail.length;
+            ctx.globalAlpha = ratio * 0.5;
+            const sz = 5 * ratio + 2;
+            ctx.drawImage(getGlowSprite(sh.palette[0], true), pt.x - sz / 2, pt.y - sz / 2, sz, sz);
+          }
+
+          if (sh.y <= sh.targetY || sh.vy > -1.3) {
+            explodeFirework(sh);
+            fireworkShells.splice(i, 1);
+          }
+        }
+
+        for (let i = fireworkSparks.length - 1; i >= 0; i--) {
+          const sp = fireworkSparks[i];
+          sp.px = sp.x;
+          sp.py = sp.y;
+          sp.x += sp.vx;
+          sp.y += sp.vy;
+          sp.vx *= sp.drag;
+          sp.vy = sp.vy * sp.drag + sp.gravity;
+          sp.life -= sp.decay;
+          if (sp.life <= 0) {
+            fireworkSparks.splice(i, 1);
+            continue;
+          }
+          const shimmer = 0.65 + 0.35 * Math.sin(animTime * 13 + sp.twinkle);
+          const alpha = sp.life * shimmer * 0.72;
+
+          // Delicate cascading streak line for long-hang willow effect
+          ctx.strokeStyle = sp.color;
+          ctx.lineWidth = Math.max(0.8, sp.life * 1.9);
+          ctx.globalAlpha = alpha * 0.55;
+          ctx.beginPath();
+          ctx.moveTo(sp.px - sp.vx * 1.6, sp.py - sp.vy * 1.6);
+          ctx.lineTo(sp.x, sp.y);
+          ctx.stroke();
+
+          const sz = sp.size * (0.45 + sp.life * 0.9);
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(getGlowSprite(sp.color, true), sp.x - sz / 2, sp.y - sz / 2, sz, sz);
+        }
+
+        // 3. Emerald Gemstone Shooting Stars / Meteors (upper sky)
+        const gemSprite = getEmeraldGemSprite();
+        for (let i = meteors.length - 1; i >= 0; i--) {
+          const m = meteors[i];
+          m.x += m.vx;
+          m.y += m.vy;
+          m.rot += m.rotSpeed;
+          m.life -= m.decay;
+          if (m.life <= 0 || m.x < -380 || m.x > width + 380 || m.y > height + 380) {
+            meteors.splice(i, 1);
+            continue;
+          }
+          const mag = Math.hypot(m.vx, m.vy) || 1;
+          const dirX = m.vx / mag;
+          const dirY = m.vy / mag;
+          const perpX = -dirY;
+          const perpY = dirX;
+          const curLen = m.len * (0.45 + 0.55 * m.life);
+          const tailX = m.x - dirX * curLen;
+          const tailY = m.y - dirY * curLen;
+
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+
+          // Layer A: Wide soft outer emerald-jade luminous aura ribbon (tapered triangle)
+          const outerW = m.width * 2.2 * m.life;
+          const outerGrad = ctx.createLinearGradient(m.x, m.y, tailX, tailY);
+          outerGrad.addColorStop(0, `rgba(110, 255, 175, ${m.life * 0.65})`);
+          outerGrad.addColorStop(0.32, `rgba(42, 200, 122, ${m.life * 0.35})`);
+          outerGrad.addColorStop(0.7, `rgba(28, 138, 86, ${m.life * 0.12})`);
+          outerGrad.addColorStop(1, 'rgba(20, 110, 68, 0)');
+          ctx.fillStyle = outerGrad;
+          ctx.beginPath();
+          ctx.moveTo(m.x + perpX * outerW, m.y + perpY * outerW);
+          ctx.lineTo(m.x - perpX * outerW, m.y - perpY * outerW);
+          ctx.lineTo(tailX, tailY);
+          ctx.closePath();
+          ctx.fill();
+
+          // Layer B: Thick vibrant emerald-mint core beam (tapered)
+          const coreW = m.width * 0.85 * m.life;
+          const coreGrad = ctx.createLinearGradient(m.x, m.y, tailX, tailY);
+          coreGrad.addColorStop(0, `rgba(235, 255, 242, ${m.life * 0.96})`);
+          coreGrad.addColorStop(0.18, `rgba(130, 255, 188, ${m.life * 0.82})`);
+          coreGrad.addColorStop(0.55, `rgba(46, 204, 124, ${m.life * 0.36})`);
+          coreGrad.addColorStop(1, 'rgba(46, 204, 124, 0)');
+          ctx.fillStyle = coreGrad;
+          ctx.beginPath();
+          ctx.moveTo(m.x + perpX * coreW, m.y + perpY * coreW);
+          ctx.lineTo(m.x - perpX * coreW, m.y - perpY * coreW);
+          ctx.lineTo(tailX, tailY);
+          ctx.closePath();
+          ctx.fill();
+
+          // Layer C: Luminous emerald halo behind the crystal head
+          const haloSize = m.gemSize * 2.3 * (0.65 + 0.35 * m.life);
+          ctx.globalAlpha = m.life * 0.82;
+          ctx.drawImage(getGlowSprite('#52eb9c', true), m.x - haloSize / 2, m.y - haloSize / 2, haloSize, haloSize);
+
+          // Layer D: Faceted Emerald Gemstone Head (drawn in source-over so crystal facets stay crisp)
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = Math.min(1, m.life * 1.35);
+          ctx.translate(m.x, m.y);
+          ctx.rotate(m.rot);
+          const gSz = m.gemSize * (0.68 + 0.32 * m.life);
+          ctx.drawImage(gemSprite, -gSz / 2, -gSz / 2, gSz, gSz);
+          ctx.restore();
+
+          // Shed sparkling emerald & pale-gold stardust along the thick wake
+          if (Math.random() < 0.72) {
+            const offsetBack = Math.random() * 28;
+            const offsetSide = (Math.random() - 0.5) * m.width * 1.4;
+            wishSparks.push({
+              x: m.x - dirX * offsetBack + perpX * offsetSide,
+              y: m.y - dirY * offsetBack + perpY * offsetSide,
+              vx: -m.vx * 0.08 + (Math.random() - 0.5) * 0.9,
+              vy: -m.vy * 0.08 + (Math.random() - 0.5) * 0.9,
+              life: 0.75 + Math.random() * 0.25,
+              decay: 0.022 + Math.random() * 0.014,
+              size: 4.5 + Math.random() * 4.5,
+              color: Math.random() < 0.7 ? '#6ef7ad' : '#ffe8a8'
+            });
+          }
+        }
+        ctx.globalCompositeOperation = 'lighter';
+
+        const { cx, cy } = getSceneCenter();
+        const baseScale = Math.min(width, height) / 680;
+        const fov = 720 * baseScale * zoom;
+        const cosY = Math.cos(rotY);
+        const sinY = Math.sin(rotY);
+        const cosX = Math.cos(rotX);
+        const sinX = Math.sin(rotX);
+
+        // 4. Soft ambient glow behind the tree body (scales up smoothly with intro)
+        const ambientAlpha = Math.min(1, introProgress * 1.4) * (1 - scatterAmount * 0.45);
+        if (ambientAlpha > 0.01) {
+          const ambientR = 260 * baseScale * zoom;
+          const ambGrad = ctx.createRadialGradient(cx, cy + 20 * baseScale, 10, cx, cy + 20 * baseScale, ambientR);
+          ambGrad.addColorStop(0, currentTheme.accent + '22');
+          ambGrad.addColorStop(0.5, currentTheme.foliage[0] + '12');
+          ambGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = ambientAlpha;
+          ctx.fillStyle = ambGrad;
+          ctx.fillRect(cx - ambientR, cy - ambientR + 20 * baseScale, ambientR * 2, ambientR * 2);
+        }
+
+        // 5. Floor starlight pool (ripples outward at very beginning of intro)
+        const floorIntro = Math.min(1, introProgress / 0.28);
+        for (let i = 0; i < floorParticles.length; i++) {
+          const p = floorParticles[i];
+          if (p.ring > floorIntro) continue;
+          const proj = project3D(p.x, p.y, p.z, cosY, sinY, cosX, sinX, cx, cy, fov);
+          if (!proj) continue;
+          const shimmer = 0.6 + 0.4 * Math.sin(animTime * 1.6 + p.phase);
+          const sz = p.size * proj.scale * 2.1;
+          ctx.globalAlpha = p.alpha * shimmer * (1 - scatterAmount * 0.65);
+          ctx.drawImage(getGlowSprite(p.color, true), proj.x - sz / 2, proj.y - sz / 2, sz, sz);
+        }
+
+        // 6. Rising spiral convergence ring during intro assembly
+        if (introProgress > 0.02 && introProgress < 0.96) {
+          const uRing = 1 - introProgress;
+          const ringY = -460 * 0.52 + uRing * 460;
+          const ringR = uRing * 185 + 14;
+          const ringSprite = getGlowSprite(currentTheme.ribbon[0], false);
+          for (let k = 0; k < 28; k++) {
+            const a = (k / 28) * Math.PI * 2 + animTime * 4.5;
+            const proj = project3D(Math.cos(a) * ringR, ringY, Math.sin(a) * ringR, cosY, sinY, cosX, sinX, cx, cy, fov);
+            if (!proj) continue;
+            const sz = (7 + (k % 3) * 3) * proj.scale;
+            ctx.globalAlpha = 0.68 * (1 - Math.abs(introProgress - 0.5) * 0.4);
+            ctx.drawImage(ringSprite, proj.x - sz / 2, proj.y - sz / 2, sz, sz);
+          }
+        }
+
+        // 7. Pine foliage particles
+        for (let i = 0; i < treeParticles.length; i++) {
+          const p = treeParticles[i];
+          const st = computeParticleState(p, animTime, introProgress, scatterAmount, treeWavePos);
+          if (!st) continue;
+          const proj = project3D(st.x, st.y, st.z, cosY, sinY, cosX, sinX, cx, cy, fov);
+          if (!proj) continue;
+          const twinkle = 0.62 + 0.38 * Math.sin(animTime * p.speed + p.phase);
+          const sz = p.size * proj.scale * (2.1 + st.boost * 0.95);
+          const depthAlpha = Math.max(0.28, Math.min(1, 0.72 - proj.z / 520));
+          ctx.globalAlpha = Math.min(1, p.alpha * twinkle * depthAlpha * st.alphaMul * (1 + st.boost * 0.5));
+          ctx.drawImage(getGlowSprite(p.color, true), proj.x - sz / 2, proj.y - sz / 2, sz, sz);
+        }
+
+        // 8. Twin luminous spiral garlands with traveling light wave
+        for (let i = 0; i < ribbonParticles.length; i++) {
+          const p = ribbonParticles[i];
+          const st = computeParticleState(p, animTime, introProgress, scatterAmount, treeWavePos);
+          if (!st) continue;
+          const proj = project3D(st.x, st.y, st.z, cosY, sinY, cosX, sinX, cx, cy, fov);
+          if (!proj) continue;
+          const wave = 0.55 + 0.45 * Math.sin(p.u * 14 - animTime * 3.4 + p.phase * 0.2);
+          const sz = p.size * proj.scale * (1.85 + wave * 0.85 + st.boost * 1.1);
+          ctx.globalAlpha = Math.min(1, p.alpha * (0.55 + wave * 0.45) * st.alphaMul);
+          ctx.drawImage(getGlowSprite(p.color, false), proj.x - sz / 2, proj.y - sz / 2, sz, sz);
+        }
+
+        // 9. Hanging luminous ornaments
+        for (let i = 0; i < ornaments.length; i++) {
+          const p = ornaments[i];
+          const st = computeParticleState(p, animTime, introProgress, scatterAmount, treeWavePos);
+          if (!st) continue;
+          const proj = project3D(st.x, st.y, st.z, cosY, sinY, cosX, sinX, cx, cy, fov);
+          if (!proj) continue;
+          const glow = 0.72 + 0.28 * Math.sin(animTime * p.speed + p.phase);
+          const sz = p.size * proj.scale * (2.0 + st.boost * 0.85);
+          ctx.globalAlpha = Math.min(1, 0.88 * glow * st.alphaMul);
+          ctx.drawImage(getGlowSprite(p.color, false), proj.x - sz / 2, proj.y - sz / 2, sz, sz);
+        }
+
+        // 10. Crowning Star Topper (blooms elastically when assembly reaches the apex)
+        const starProj = project3D(0, -460 * 0.52 - 14 - scatterAmount * 75, 0, cosY, sinY, cosX, sinX, cx, cy, fov);
+        if (starProj) {
+          starScreenPos = { x: starProj.x, y: starProj.y, visible: introProgress >= 0.84 };
+          if (introProgress >= 0.84) {
+            const stT = Math.min(1, (introProgress - 0.84) / 0.16);
+            // Elastic overshoot pop 0 -> 1.25 -> 1.0
+            const elastic = stT < 0.7 ? easeOutCubic(stT / 0.7) * 1.22 : 1.22 - ((stT - 0.7) / 0.3) * 0.22;
+            drawStarTopper(starProj.x, starProj.y, starProj.scale, animTime, elastic * (1 - scatterAmount * 0.25));
+          }
+        } else {
+          starScreenPos.visible = false;
+        }
+
+        // 11. 3D Falling Snowflakes
+        const snowSprite = getGlowSprite('#ffffff', true);
+        for (let i = 0; i < snowParticles.length; i++) {
+          const s = snowParticles[i];
+          s.y += s.vy;
+          s.sway += s.swaySpeed;
+          s.x += Math.sin(s.sway) * 0.45;
+          if (s.y > 460) {
+            s.y = -460;
+            s.x = (Math.random() - 0.5) * 1100;
+          }
+          const proj = project3D(s.x, s.y, s.z, cosY * 0.2, sinY * 0.2, 1, 0, width * 0.5, height * 0.5, 680);
+          if (!proj) continue;
+          const sz = s.size * proj.scale * 2.4;
+          if (sz > 38) continue;
+          ctx.globalAlpha = s.alpha * Math.min(1, proj.scale * 0.9);
+          ctx.drawImage(snowSprite, proj.x - sz / 2, proj.y - sz / 2, sz, sz);
+        }
+
+        // 12. Interactive Wish Sparks
+        for (let i = wishSparks.length - 1; i >= 0; i--) {
+          const sp = wishSparks[i];
+          sp.x += sp.vx;
+          sp.y += sp.vy;
+          sp.vx *= 0.97;
+          sp.vy = sp.vy * 0.97 - 0.03;
+          sp.life -= sp.decay;
+          if (sp.life <= 0) {
+            wishSparks.splice(i, 1);
+            continue;
+          }
+          const sz = sp.size * (0.5 + sp.life);
+          ctx.globalAlpha = sp.life;
+          ctx.drawImage(getGlowSprite(sp.color, false), sp.x - sz / 2, sp.y - sz / 2, sz, sz);
+        }
+
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(render);
+      }
+
+      /* =========================================================================
+       * 5. Canvas Pointer / Touch / Wheel Interactions
+       * ========================================================================= */
+      canvas.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+        pointerDownX = e.clientX;
+        pointerDownY = e.clientY;
+        pointerDownTime = performance.now();
+        canvas.setPointerCapture(e.pointerId);
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastPointerX;
+        const dy = e.clientY - lastPointerY;
+        rotY += dx * 0.0075;
+        rotX = Math.max(-0.35, Math.min(0.45, rotX + dy * 0.0045));
+        velY = dx * 0.0025;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+      });
+
+      canvas.addEventListener('pointerup', (e) => {
+        isDragging = false;
+        const now = performance.now();
+        const dist = Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY);
+        if (dist < 10 && now - pointerDownTime < 350) {
+          // Check for double-tap / double-click -> Toggle 3D Nebula Scatter
+          const tapGap = now - lastTapTime;
+          const tapDist = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY);
+          if (tapGap < 320 && tapDist < 36) {
+            lastTapTime = 0;
+            manualScatter = !manualScatter;
+            if (!manualScatter && targetZoom > 1.45) targetZoom = 1.05;
+            spawnWishSparks(e.clientX, e.clientY, 28, 1.3);
+            showToast(manualScatter ? '星海发散中 · 再次双击聚拢成树' : '星光聚拢成树');
+            return;
+          }
+          lastTapTime = now;
+          lastTapX = e.clientX;
+          lastTapY = e.clientY;
+
+          // Check if user tapped the crowning star topper -> Meteor Shower + Tree Energy Wave
+          if (starScreenPos.visible && Math.hypot(e.clientX - starScreenPos.x, e.clientY - starScreenPos.y) < 48) {
+            triggerMeteorShower();
+            showToast('星愿流星雨已降临');
+            return;
+          }
+
+          // Otherwise: wish sparks + occasional shooting star if tapped in upper night sky
+          spawnWishSparks(e.clientX, e.clientY, 22, 1);
+          if (e.clientY < height * 0.42) {
+            spawnMeteor(e.clientX, e.clientY);
+          }
+        }
+      });
+
+      canvas.addEventListener('pointercancel', () => {
+        isDragging = false;
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const prevZoom = targetZoom;
+        targetZoom = Math.max(0.65, Math.min(1.85, targetZoom - e.deltaY * 0.00085));
+        if (prevZoom <= 1.45 && targetZoom > 1.45 && !scatterHintShown) {
+          scatterHintShown = true;
+          showToast('已进入星海发散 · 缩小即可重新聚拢');
+        }
+      }, { passive: false });
+
+      // Pinch-to-zoom for mobile
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          pinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && pinchDist > 0) {
+          const newDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          targetZoom = Math.max(0.65, Math.min(1.85, targetZoom * (newDist / pinchDist)));
+          pinchDist = newDist;
+        }
+      }, { passive: true });
+
+      /* =========================================================================
+       * 6. App State, Editor Sync & Share Link Generation
+       * ========================================================================= */
+      const state = { ...DEFAULT_STATE };
+      const musicBox = new MusicBox();
+
+      const elTitle = document.getElementById('display-title');
+      const elTo = document.getElementById('display-to');
+      const elMessage = document.getElementById('display-message');
+      const elFrom = document.getElementById('display-from');
+      const elModeBadge = document.getElementById('mode-badge');
+
+      const inputTitle = document.getElementById('input-title');
+      const inputTo = document.getElementById('input-to');
+      const inputFrom = document.getElementById('input-from');
+      const inputMessage = document.getElementById('input-message');
+      const charCount = document.getElementById('char-count');
+
+      const editorDrawer = document.getElementById('editor-drawer');
+      const toggleEditorBtn = document.getElementById('toggle-editor-btn');
+      const toggleEditorLabel = document.getElementById('toggle-editor-label');
+      const closeEditorBtn = document.getElementById('close-editor-btn');
+      const musicBtn = document.getElementById('music-btn');
+      const musicLabel = document.getElementById('music-label');
+      const pureBtn = document.getElementById('pure-btn');
+      const exitPureBtn = document.getElementById('exit-pure-btn');
+
+      const copyShareBtn = document.getElementById('copy-share-btn');
+      const previewRecipientBtn = document.getElementById('preview-recipient-btn');
+      const shareResult = document.getElementById('share-result');
+      const shareUrlInput = document.getElementById('share-url-input');
+      const shareNote = document.getElementById('share-note');
+      const toastEl = document.getElementById('toast');
+
+      let toastTimer = null;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2800);
+      }
+
+      function applyTheme(themeIndex) {
+        const theme = THEMES[themeIndex] || THEMES[0];
+        state.theme = theme.id;
+        const root = document.documentElement.style;
+        root.setProperty('--bg-top', theme.bgTop);
+        root.setProperty('--bg-mid', theme.bgMid);
+        root.setProperty('--bg-bot', theme.bgBot);
+        root.setProperty('--accent', theme.accent);
+        root.setProperty('--accent-strong', theme.accentStrong);
+        buildSceneGeometry(theme);
+
+        document.querySelectorAll('.theme-option').forEach((btn) => {
+          btn.classList.toggle('active', Number(btn.dataset.theme) === theme.id);
+        });
+      }
+
+      function renderBlessing() {
+        elTitle.textContent = state.title.trim() || 'Merry Christmas';
+
+        if (state.to.trim()) {
+          elTo.textContent = 'TO · ' + state.to.trim();
+          elTo.style.display = 'flex';
+        } else {
+          elTo.style.display = 'none';
+        }
+
+        elMessage.textContent = state.message.trim() || '愿你圣诞快乐，岁岁常欢愉。';
+
+        if (state.from.trim()) {
+          elFrom.textContent = '—— ' + state.from.trim();
+          elFrom.style.display = 'block';
+        } else {
+          elFrom.style.display = 'none';
+        }
+
+        charCount.textContent = `${state.message.length} / 240`;
+        document.title = state.to.trim()
+          ? `致 ${state.to.trim()} · ${state.title.trim() || 'Merry Christmas'}`
+          : `${state.title.trim() || 'Merry Christmas'} · 星光圣诞树`;
+      }
+
+      function syncInputsFromState() {
+        inputTitle.value = state.title;
+        inputTo.value = state.to;
+        inputFrom.value = state.from;
+        inputMessage.value = state.message;
+        renderBlessing();
+        applyTheme(state.theme);
+      }
+
+      function setEditorOpen(open) {
+        editorDrawer.classList.toggle('collapsed', !open);
+        document.body.classList.toggle('editor-open', open);
+        toggleEditorBtn.classList.toggle('active', open);
+      }
+
+      // Bind live inputs
+      inputTitle.addEventListener('input', () => {
+        state.title = inputTitle.value;
+        renderBlessing();
+        shareResult.classList.remove('visible');
+      });
+
+      inputTo.addEventListener('input', () => {
+        state.to = inputTo.value;
+        renderBlessing();
+        shareResult.classList.remove('visible');
+      });
+
+      inputFrom.addEventListener('input', () => {
+        state.from = inputFrom.value;
+        renderBlessing();
+        shareResult.classList.remove('visible');
+      });
+
+      inputMessage.addEventListener('input', () => {
+        state.message = inputMessage.value;
+        renderBlessing();
+        shareResult.classList.remove('visible');
+      });
+
+      // Preset chips
+      document.getElementById('preset-chips').addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip-btn');
+        if (!btn) return;
+        const preset = PRESETS[btn.dataset.preset];
+        if (!preset) return;
+        state.title = preset.title;
+        state.to = preset.to;
+        state.message = preset.message;
+        state.from = preset.from;
+        syncInputsFromState();
+        shareResult.classList.remove('visible');
+        showToast('已应用祝福模板，可继续自由修改');
+      });
+
+      // Theme buttons
+      document.getElementById('theme-grid').addEventListener('click', (e) => {
+        const btn = e.target.closest('.theme-option');
+        if (!btn) return;
+        applyTheme(Number(btn.dataset.theme));
+        shareResult.classList.remove('visible');
+      });
+
+      // Top actions
+      toggleEditorBtn.addEventListener('click', () => {
+        const isClosed = editorDrawer.classList.contains('collapsed');
+        setEditorOpen(isClosed);
+      });
+
+      closeEditorBtn.addEventListener('click', () => setEditorOpen(false));
+
+      musicBtn.addEventListener('click', () => {
+        const playing = musicBox.toggle();
+        musicBtn.classList.toggle('active', playing);
+        musicLabel.textContent = playing ? '播放中' : '八音盒';
+        if (playing) showToast('八音盒已开启');
+      });
+
+      pureBtn.addEventListener('click', () => {
+        document.body.classList.add('pure-view');
+      });
+
+      exitPureBtn.addEventListener('click', () => {
+        document.body.classList.remove('pure-view');
+      });
+
+      // Build share URL & copy
+      async function buildShareUrl() {
+        const encoded = await compressPayload(state);
+        const base = window.location.href.split('#')[0];
+        return `${base}#${encoded}`;
+      }
+
+      copyShareBtn.addEventListener('click', async () => {
+        const url = await buildShareUrl();
+        shareUrlInput.value = url;
+        shareResult.classList.add('visible');
+
+        // Warn politely if still running on local file or localhost
+        const isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if (isLocal) {
+          shareNote.textContent = '提示：当前为本地/预览地址，部署到公网静态托管（如 GitHub Pages / Cloudflare Pages）后发给别人才可直接打开。';
+        } else {
+          shareNote.textContent = '链接已包含全部祝福与主题，发给 TA 打开即直接进入纯净观赏模式。';
+        }
+
+        // Update address bar silently so refreshing keeps state
+        try {
+          history.replaceState(null, '', '#' + url.split('#')[1]);
+        } catch (_) {}
+
+        let copied = false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try {
+            await navigator.clipboard.writeText(url);
+            copied = true;
+          } catch (_) {}
+        }
+        if (!copied) {
+          shareUrlInput.focus();
+          shareUrlInput.select();
+          try {
+            copied = document.execCommand('copy');
+          } catch (_) {}
+        }
+
+        showToast(copied ? '分享链接已复制！' : '链接已生成，请手动复制上方地址');
+      });
+
+      previewRecipientBtn.addEventListener('click', async () => {
+        const url = await buildShareUrl();
+        try {
+          history.replaceState(null, '', '#' + url.split('#')[1]);
+        } catch (_) {}
+        setEditorOpen(false);
+        toggleEditorLabel.textContent = '制作同款';
+        elModeBadge.textContent = 'A SPECIAL WISH FOR YOU';
+        startIntro(true);
+        showToast('正在重播对方打开时的星光汇聚入场');
+      });
+
+      /* =========================================================================
+       * 7. Initialization
+       * ========================================================================= */
+      async function init() {
+        resize();
+        window.addEventListener('resize', resize);
+        initAtmosphere();
+
+        const sharedState = await decompressPayload(window.location.hash);
+        if (sharedState) {
+          // Opened via a shared link -> Recipient View Mode!
+          Object.assign(state, sharedState);
+          syncInputsFromState();
+          setEditorOpen(false);
+          toggleEditorLabel.textContent = '制作同款';
+          elModeBadge.textContent = 'A SPECIAL WISH FOR YOU';
+          startIntro(true);
+        } else {
+          // Default Author Edit Mode
+          syncInputsFromState();
+          setEditorOpen(true);
+          toggleEditorLabel.textContent = '编辑祝福';
+          elModeBadge.textContent = 'WINTER STARLIGHT EDITION';
+          startIntro(false);
+        }
+
+        // Fade out canvas hint after a few seconds
+        setTimeout(() => {
+          const hint = document.getElementById('canvas-hint');
+          if (hint) hint.style.opacity = '0.32';
+        }, 9000);
+
+        lastFrameTs = performance.now();
+        requestAnimationFrame(render);
+      }
+
+      // Listen to hash changes (e.g., browser back/forward)
+      window.addEventListener('hashchange', async () => {
+        const sharedState = await decompressPayload(window.location.hash);
+        if (sharedState) {
+          Object.assign(state, sharedState);
+          syncInputsFromState();
+        }
+      });
+
+      init();
+    })();
+  </script>
+</body>
+</html>
